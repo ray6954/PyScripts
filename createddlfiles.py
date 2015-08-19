@@ -1,13 +1,15 @@
 # coding: utf-8
 
+import math
+import os
 import sys
 import xlrd  # xls:rw,xlsx:r
 #import re
 
-# -- インデックスを設定する。ゼロオリジン。-- #
+# -- 以下適宜設定する ------------------------ #
 
+# インデックスはゼロオリジン。
 SHEET_INDEX = 2      # テーブル定義シート
-
 COLUMN_INDEX = {
 'COL_TBLNAME'    : 3      # テーブル名
 ,'COL_COLNAME'   : 9      # カラム名
@@ -18,9 +20,9 @@ COLUMN_INDEX = {
 ,'COL_NOTNULL'   : 11     # 必須
 ,'COL_DEFAULT'   : 19     # デフォルト値
 }
-
 ROW_FROM = 9      # 読込開始行番号
 
+FOLDER_NAME = 'TABLE'
 # -------------------------------------------- #
 
 
@@ -66,9 +68,15 @@ def write_ddl(rows):
         if 0 == row['COL_DEFAULT'].ctype:
             pass
         elif 1 == row['COL_DEFAULT'].ctype:
-            line = line + ' DEFAULT ' + "'%s'" % str(row['COL_DEFAULT'].value)
+            line = line + " DEFAULT '%s'" % str(row['COL_DEFAULT'].value)
         elif 2 == row['COL_DEFAULT'].ctype:
-            line = line + ' DEFAULT ' + str(int(row['COL_DEFAULT'].value))
+            val = row['COL_DEFAULT'].value
+            # .0のフォーマット
+            if val == math.floor(val):
+                val = str(int(val))
+            else:
+                val = str(val)
+            line = line + ' DEFAULT %s' % val
 
         if 'Yes' == row['COL_NOTNULL'].value:
             line = line + ' ' + 'NOT NULL'
@@ -81,7 +89,7 @@ def write_ddl(rows):
 
     output.append(')')
 
-    file = open("%s.ddl" % tablename,"w")
+    file = open("%s/%s.ddl" % (FOLDER_NAME,tablename),"w")
     for l in output:
         file.write(l + '\n')
     file.close;
@@ -95,6 +103,12 @@ def create_files(filename):
 
     row_to = sheet.nrows  # 最終行番号+1
     
+    # 保存先作成
+    if os.path.isdir(FOLDER_NAME):
+        pass
+    else:
+        os.mkdir(FOLDER_NAME)
+        
     extable = ''
     cols = {} 
     rows = []
@@ -108,9 +122,7 @@ def create_files(filename):
                 rows[:] = []
 
         # 1行分の列を取得
-        cols = {}
-        for colname, index in COLUMN_INDEX.iteritems():
-            cols[colname] = sheet.cell(n,index)
+        cols = {colname:sheet.cell(n,index) for colname, index in COLUMN_INDEX.items()}
 
         rows.append(cols)
         extable = sheet.cell_value(n,COLUMN_INDEX['COL_TBLNAME'])
